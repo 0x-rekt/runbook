@@ -55,19 +55,32 @@ const CHECKOUT_DEPLOYS: Deploy[] = [
   },
 ];
 
-const DEPLOYS_BY_SERVICE: Record<string, Deploy[]> = {
-  checkout: CHECKOUT_DEPLOYS,
-  payments: CHECKOUT_DEPLOYS.filter((d) => d.service === "payments" || d.service === "checkout"),
-};
+const ALL_DEPLOYS = CHECKOUT_DEPLOYS;
 
+/**
+ * Returns deploys for exactly the requested services — no cross-service leakage.
+ * (Previously the `payments` bucket was built by filtering in `checkout` entries
+ * too, which meant a `payments`-only query silently returned `checkout` deploys.)
+ */
 export function getRecentDeploys(services: string[], count: number): Deploy[] {
-  const all = services.flatMap((s) => DEPLOYS_BY_SERVICE[s] ?? []);
-  const deduped = Array.from(new Map(all.map((d) => [d.sha, d])).values());
-  return deduped
+  const serviceSet = new Set(services);
+  const matching = ALL_DEPLOYS.filter((d) => serviceSet.has(d.service));
+  return matching
     .sort((a, b) => new Date(b.deployed_at).getTime() - new Date(a.deployed_at).getTime())
     .slice(0, count);
 }
 
 export function findDeployBySha(sha: string): Deploy | undefined {
-  return CHECKOUT_DEPLOYS.find((d) => d.sha === sha || d.short_sha === sha);
+  return ALL_DEPLOYS.find((d) => d.sha === sha || d.short_sha === sha);
+}
+
+/**
+ * The deploy that should be rolled back TO for a service when no explicit sha
+ * is given: the second-most-recent deploy for that service (i.e. the one
+ * before the presumed-bad latest one). Returns undefined if there isn't a
+ * prior deploy to fall back to.
+ */
+export function getPreviousDeploy(service: string): Deploy | undefined {
+  const forService = getRecentDeploys([service], 2);
+  return forService[1];
 }

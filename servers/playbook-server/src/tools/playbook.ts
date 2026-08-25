@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { loadPlaybooks, loadPlaybook } from "../parser.js";
+import { loadPlaybooks, loadPlaybook } from "../playbook-parser.js";
 
 export function registerPlaybookTools(server: McpServer, playbooksDir: string) {
   server.registerTool(
